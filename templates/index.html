@@ -1,0 +1,2107 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>NeuralArt - AdaIN Style Transfer</title>
+
+    <!-- Bootstrap -->
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+    >
+
+    <!-- Font Awesome -->
+    <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    >
+
+    <!-- Google Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;400;600&display=swap"
+        rel="stylesheet"
+    >
+
+    <style>
+
+        /* =========================
+           BODY
+        ========================= */
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #e2e8f0;
+
+            background-image:
+                linear-gradient(
+                    rgba(15, 23, 42, 0.9),
+                    rgba(15, 23, 42, 0.95)
+                ),
+                url(
+                    'https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?q=80&w=1974&auto=format&fit=crop'
+                );
+
+            background-size: cover;
+            background-attachment: fixed;
+            background-position: center;
+
+            min-height: 100vh;
+        }
+
+
+        /* =========================
+           HEADER
+        ========================= */
+
+        .header-section {
+            padding: 7rem 0 3rem;
+            text-align: center;
+            position: relative;
+        }
+
+        .header-section h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            font-size: 3.5rem;
+
+            background:
+                linear-gradient(
+                    to right,
+                    #818cf8,
+                    #c084fc,
+                    #f472b6
+                );
+
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+
+            text-shadow:
+                0 0 30px rgba(192, 132, 252, 0.3);
+
+            margin-bottom: 1rem;
+        }
+
+        .header-section .lead {
+            font-size: 1.25rem;
+            color: #94a3b8;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+
+        /* =========================
+           NAVBAR
+        ========================= */
+
+        .navbar {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(10px);
+
+            border-bottom:
+                1px solid rgba(255, 255, 255, 0.05);
+
+            z-index: 1000;
+        }
+
+        .navbar-brand {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            font-size: 1.5rem;
+
+            background:
+                linear-gradient(
+                    to right,
+                    #818cf8,
+                    #c084fc
+                );
+
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-link {
+            color: #e2e8f0 !important;
+            font-weight: 500;
+            margin-left: 1rem;
+            transition: color 0.3s;
+        }
+
+        .nav-link:hover {
+            color: #818cf8 !important;
+        }
+
+
+        /* =========================
+           CARDS
+        ========================= */
+
+        .card {
+            background: rgba(30, 41, 59, 0.65);
+            backdrop-filter: blur(12px);
+
+            border:
+                1px solid rgba(255, 255, 255, 0.1);
+
+            border-radius: 20px;
+
+            box-shadow:
+                0 25px 50px -12px rgba(0, 0, 0, 0.5);
+
+            transition:
+                transform 0.3s ease,
+                box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            border-color:
+                rgba(129, 140, 248, 0.3);
+
+            box-shadow:
+                0 20px 35px -10px rgba(0, 0, 0, 0.4);
+        }
+
+        .card-header {
+            background:
+                rgba(255, 255, 255, 0.05);
+
+            border-bottom:
+                1px solid rgba(255, 255, 255, 0.1);
+
+            color: #f8fafc;
+
+            font-family: 'Orbitron', sans-serif;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+        }
+
+
+        /* =========================
+           IMAGE PREVIEW
+        ========================= */
+
+        .preview-image {
+            width: 100%;
+            height: 300px;
+
+            object-fit: contain;
+
+            background-color: #0f172a;
+
+            border:
+                2px dashed #334155;
+
+            border-radius: 10px;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            color: #64748b;
+            font-size: 1.2rem;
+
+            overflow: hidden;
+        }
+
+        .preview-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+
+        /* =========================
+           FILE INPUT
+        ========================= */
+
+        .form-control {
+            background-color: #1e293b;
+            border: 1px solid #334155;
+            color: #f8fafc;
+        }
+
+        .form-control:focus {
+            background-color: #1e293b;
+            border-color: #818cf8;
+            color: #f8fafc;
+
+            box-shadow:
+                0 0 0 0.25rem
+                rgba(129, 140, 248, 0.25);
+        }
+
+        .form-control::file-selector-button {
+            background-color: #334155;
+            color: #f8fafc;
+
+            border: none;
+
+            padding:
+                0.375rem 0.75rem;
+
+            margin-right: 0.75rem;
+
+            border-radius: 0.25rem;
+        }
+
+        .form-control::file-selector-button:hover {
+            background-color: #475569;
+        }
+
+
+        /* =========================
+           BUTTON
+        ========================= */
+
+        .btn-primary {
+            background:
+                linear-gradient(
+                    135deg,
+                    #6366f1 0%,
+                    #a855f7 100%
+                );
+
+            border: none;
+
+            padding: 15px 50px;
+
+            font-size: 1.2rem;
+
+            font-family: 'Orbitron', sans-serif;
+
+            border-radius: 50px;
+
+            transition: all 0.3s;
+
+            text-transform: uppercase;
+            letter-spacing: 2px;
+
+            box-shadow:
+                0 10px 20px -10px
+                rgba(168, 85, 247, 0.5);
+        }
+
+        .btn-primary:hover {
+            background:
+                linear-gradient(
+                    135deg,
+                    #4f46e5 0%,
+                    #9333ea 100%
+                );
+
+            transform: translateY(-2px);
+
+            box-shadow:
+                0 20px 30px -10px
+                rgba(168, 85, 247, 0.6);
+        }
+
+
+        /* =========================
+           RANGE SLIDER
+        ========================= */
+
+        .range-wrap {
+            position: relative;
+            margin: 2rem auto;
+            width: 100%;
+            max-width: 90%;
+        }
+
+        #alphaRange {
+            -webkit-appearance: none;
+
+            width: 100%;
+            height: 12px;
+
+            background:
+                rgba(30, 41, 59, 0.8);
+
+            border-radius: 15px;
+
+            outline: none;
+
+            border:
+                1px solid rgba(255, 255, 255, 0.1);
+
+            box-shadow:
+                inset 0 2px 5px rgba(0, 0, 0, 0.5);
+        }
+
+        #alphaRange::-webkit-slider-thumb {
+            -webkit-appearance: none;
+
+            height: 24px;
+            width: 24px;
+
+            border-radius: 50%;
+
+            background: #fff;
+
+            cursor: pointer;
+
+            box-shadow:
+                0 0 10px #c084fc,
+                0 0 20px #818cf8;
+
+            border:
+                3px solid #1e293b;
+        }
+
+        .range-value {
+            position: absolute;
+
+            top: -40px;
+            left: 50%;
+
+            transform:
+                translateX(-50%);
+
+            background:
+                linear-gradient(
+                    135deg,
+                    #6366f1 0%,
+                    #a855f7 100%
+                );
+
+            color: white;
+
+            padding: 4px 12px;
+
+            border-radius: 15px;
+
+            font-family: 'Orbitron', sans-serif;
+
+            font-size: 0.85rem;
+
+            opacity: 0;
+
+            transition: opacity 0.3s;
+
+            pointer-events: none;
+        }
+
+        .range-wrap:hover .range-value {
+            opacity: 1;
+        }
+
+
+        /* =========================
+           RESULT
+        ========================= */
+
+        #resultSection {
+            display: none;
+        }
+
+        #resultImage {
+            max-height: 700px;
+            width: 100%;
+            object-fit: contain;
+            background: #0f172a;
+        }
+
+
+        /* =========================
+           ERROR
+        ========================= */
+
+        #errorBox {
+            display: none;
+
+            background:
+                rgba(220, 38, 38, 0.2);
+
+            border:
+                1px solid #dc2626;
+
+            color: #fecaca;
+
+            border-radius: 12px;
+
+            padding: 15px;
+
+            margin-top: 25px;
+
+            text-align: center;
+        }
+
+
+        /* =========================
+           LOADER
+        ========================= */
+
+        .loader-overlay {
+            position: fixed;
+
+            top: 0;
+            left: 0;
+
+            width: 100%;
+            height: 100%;
+
+            background:
+                rgba(15, 23, 42, 0.9);
+
+            backdrop-filter: blur(5px);
+
+            z-index: 9999;
+
+            display: flex;
+
+            align-items: center;
+            justify-content: center;
+
+            flex-direction: column;
+
+            opacity: 0;
+
+            pointer-events: none;
+
+            transition: opacity 0.3s ease;
+        }
+
+        .loader-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .cyber-spinner {
+            width: 80px;
+            height: 80px;
+
+            border:
+                4px solid transparent;
+
+            border-top:
+                4px solid #818cf8;
+
+            border-right:
+                4px solid #c084fc;
+
+            border-radius: 50%;
+
+            animation:
+                spin 1s linear infinite;
+
+            box-shadow:
+                0 0 15px
+                rgba(129, 140, 248, 0.5);
+        }
+
+        @keyframes spin {
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+
+        /* =========================
+           EXAMPLES
+        ========================= */
+
+        .examples-section {
+            margin-top: 4rem;
+        }
+
+        .example-image {
+            width: 100%;
+            height: 220px;
+
+            object-fit: contain;
+
+            border-radius: 10px;
+
+            border:
+                1px solid rgba(255, 255, 255, 0.12);
+
+            background:
+                rgba(15, 23, 42, 0.8);
+        }
+
+        .example-role {
+            font-size: 0.82rem;
+            font-weight: 700;
+
+            letter-spacing: 0.08em;
+
+            color: #cbd5e1;
+
+            margin-bottom: 0.45rem;
+
+            text-transform: uppercase;
+        }
+
+        .example-flow {
+            display: flex;
+
+            align-items: center;
+
+            gap: 1.5rem;
+
+            padding: 1.25rem;
+
+            border-radius: 18px;
+
+            background:
+                rgba(15, 23, 42, 0.45);
+
+            border:
+                1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .example-inputs {
+            flex: 1;
+
+            display: grid;
+
+            gap: 1rem;
+        }
+
+        .example-output {
+            flex: 1;
+        }
+
+        .example-arrow {
+            color: #a5b4fc;
+            font-size: 1.75rem;
+            font-weight: 700;
+        }
+
+
+        /* =========================
+           FAQ
+        ========================= */
+
+        .faq-section {
+            margin-top: 4rem;
+        }
+
+        .accordion-item {
+            background:
+                rgba(30, 41, 59, 0.6);
+
+            border:
+                1px solid rgba(255, 255, 255, 0.1);
+
+            margin-bottom: 0.75rem;
+
+            border-radius: 12px;
+
+            overflow: hidden;
+        }
+
+        .accordion-button {
+            background:
+                rgba(15, 23, 42, 0.75);
+
+            color: #e2e8f0;
+
+            font-weight: 600;
+        }
+
+        .accordion-button:not(.collapsed) {
+            background:
+                rgba(129, 140, 248, 0.2);
+
+            color: #f8fafc;
+
+            box-shadow: none;
+        }
+
+        .accordion-body {
+            color: #94a3b8;
+        }
+
+
+        /* =========================
+           FOOTER
+        ========================= */
+
+        .footer-section {
+            background:
+                rgba(15, 23, 42, 0.95);
+
+            border-top:
+                1px solid rgba(255, 255, 255, 0.05);
+
+            padding:
+                4rem 0 2rem;
+
+            margin-top: 5rem;
+
+            color: #94a3b8;
+        }
+
+        .footer-section h5 {
+            color: #f8fafc;
+
+            font-family: 'Orbitron', sans-serif;
+
+            margin-bottom: 1.5rem;
+        }
+
+        .footer-link {
+            color: #94a3b8;
+
+            text-decoration: none;
+
+            display: block;
+
+            margin-bottom: 0.8rem;
+        }
+
+        .footer-link:hover {
+            color: #818cf8;
+        }
+
+        .social-icon {
+            width: 40px;
+            height: 40px;
+
+            display: inline-flex;
+
+            align-items: center;
+            justify-content: center;
+
+            background:
+                rgba(255,255,255,0.05);
+
+            border-radius: 50%;
+
+            color: #f8fafc;
+
+            margin-right: 10px;
+
+            transition: all 0.3s;
+
+            text-decoration: none;
+        }
+
+        .social-icon:hover {
+            background: #818cf8;
+            color: white;
+        }
+
+
+        /* =========================
+           MOBILE
+        ========================= */
+
+        @media (max-width: 767px) {
+
+            .header-section h1 {
+                font-size: 2.3rem;
+            }
+
+            .example-flow {
+                flex-direction: column;
+            }
+
+            .example-arrow {
+                transform: rotate(90deg);
+            }
+
+            .btn-primary {
+                padding: 13px 30px;
+                font-size: 1rem;
+            }
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+
+<!-- =========================
+     NAVBAR
+========================= -->
+
+<nav class="navbar navbar-expand-lg fixed-top">
+
+    <div class="container">
+
+        <a class="navbar-brand" href="/">
+            <i class="fas fa-brain me-2"></i>
+            NeuralArt
+        </a>
+
+        <button
+            class="navbar-toggler navbar-dark"
+            type="button"
+            data-bs-toggle="collapse"
+            data-bs-target="#navbarNav"
+        >
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div
+            class="collapse navbar-collapse"
+            id="navbarNav"
+        >
+
+            <ul class="navbar-nav ms-auto">
+
+                <li class="nav-item">
+                    <a class="nav-link" href="/">
+                        Home
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a class="nav-link" href="#examples">
+                        Gallery
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a class="nav-link" href="#features">
+                        Features
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a class="nav-link" href="#faq">
+                        FAQ
+                    </a>
+                </li>
+
+            </ul>
+
+            <a
+                href="/docs"
+                class="btn btn-sm btn-outline-light ms-3 rounded-pill px-4"
+            >
+                API
+            </a>
+
+        </div>
+
+    </div>
+
+</nav>
+
+
+<!-- =========================
+     HEADER
+========================= -->
+
+<div class="header-section">
+
+    <div class="container">
+
+        <h1>
+            STYLEFORGE AI
+        </h1>
+
+        <p class="lead">
+            Redefine Reality with AI-Powered Artistry
+        </p>
+
+    </div>
+
+</div>
+
+
+<!-- =========================
+     MAIN
+========================= -->
+
+<div
+    class="container mb-5"
+    id="features"
+>
+
+
+    <!-- UPLOAD FORM -->
+
+    <form
+        id="uploadForm"
+        enctype="multipart/form-data"
+    >
+
+        <div class="row g-4">
+
+
+            <!-- CONTENT -->
+
+            <div class="col-md-6">
+
+                <div class="card h-100">
+
+                    <div
+                        class="card-header text-center py-3"
+                    >
+                        Content Source
+                    </div>
+
+                    <div
+                        class="card-body text-center"
+                    >
+
+                        <div
+                            class="preview-image mb-3"
+                            id="contentPreview"
+                        >
+
+                            <span>
+                                Select Content Image
+                            </span>
+
+                        </div>
+
+                        <input
+                            type="file"
+                            name="content"
+                            id="content"
+                            class="form-control"
+                            accept=".jpg,.jpeg,.png"
+                            required
+                        >
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- STYLE -->
+
+            <div class="col-md-6">
+
+                <div class="card h-100">
+
+                    <div
+                        class="card-header text-center py-3"
+                    >
+                        Style Reference
+                    </div>
+
+                    <div
+                        class="card-body text-center"
+                    >
+
+                        <div
+                            class="preview-image mb-3"
+                            id="stylePreview"
+                        >
+
+                            <span>
+                                Select Style Image
+                            </span>
+
+                        </div>
+
+                        <input
+                            type="file"
+                            name="style"
+                            id="style"
+                            class="form-control"
+                            accept=".jpg,.jpeg,.png"
+                            required
+                        >
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- ALPHA -->
+
+        <div class="row justify-content-center mt-4">
+
+            <div class="col-md-8">
+
+                <div class="range-wrap">
+
+                    <label
+                        for="alphaRange"
+                        class="form-label fw-bold mb-3 d-block text-center"
+                        style="
+                            font-family:'Orbitron',sans-serif;
+                            letter-spacing:1px;
+                            color:#a855f7;
+                        "
+                    >
+                        STYLE STRENGTH
+                    </label>
+
+                    <div class="position-relative">
+
+                        <div
+                            class="range-value"
+                            id="rangeValue"
+                        >
+                            1.0
+                        </div>
+
+                        <input
+                            type="range"
+                            id="alphaRange"
+                            name="alpha"
+                            min="0"
+                            max="1"
+                            step="0.1"
+                            value="1"
+                        >
+
+                    </div>
+
+                </div>
+
+
+                <!-- BUTTON -->
+
+                <div class="text-center mt-5">
+
+                    <button
+                        type="submit"
+                        id="transferButton"
+                        class="btn btn-primary"
+                    >
+
+                        <i class="fas fa-magic me-2"></i>
+
+                        TRANSFER STYLE
+
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </form>
+
+
+    <!-- ERROR -->
+
+    <div id="errorBox">
+
+        <strong>Error:</strong>
+
+        <span id="errorMessage"></span>
+
+    </div>
+
+
+    <!-- RESULT -->
+
+    <div
+        class="row justify-content-center mt-5"
+        id="resultSection"
+    >
+
+        <div class="col-md-8">
+
+            <div class="card border-success">
+
+                <div
+                    class="card-header text-white fw-bold text-center py-3"
+                    style="
+                        background:
+                        linear-gradient(
+                            135deg,
+                            #10b981 0%,
+                            #059669 100%
+                        );
+                    "
+                >
+
+                    <i class="fas fa-check-circle me-2"></i>
+
+                    Stylized Result
+
+                </div>
+
+                <div class="card-body p-0">
+
+                    <img
+                        id="resultImage"
+                        class="img-fluid w-100"
+                        alt="Stylized Image"
+                    >
+
+                </div>
+
+                <div
+                    class="card-footer text-center"
+                    style="
+                        background:transparent;
+                        border-top:none;
+                        padding-bottom:20px;
+                    "
+                >
+
+                    <a
+                        id="downloadButton"
+                        href="#"
+                        download="stylized_result.png"
+                        class="btn btn-outline-light mt-2"
+                    >
+
+                        <i class="fas fa-download me-2"></i>
+
+                        Download Result
+
+                    </a>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- =========================
+     EXAMPLES
+========================= -->
+
+<section
+    class="container examples-section"
+    id="examples"
+>
+
+    <div class="card">
+
+        <div class="card-header text-center py-3">
+            Examples
+        </div>
+
+        <div class="card-body">
+
+            <p class="text-center text-muted mb-4">
+                Each example shows the content image,
+                style image, and final output.
+            </p>
+
+
+            <!-- EXAMPLE 1 -->
+
+            <div class="example-flow mb-4">
+
+                <div class="example-inputs">
+
+                    <div>
+
+                        <div class="example-role text-center">
+                            Content Image
+                        </div>
+
+                        <img
+                            src="/examples/brad_pitt.jpg"
+                            alt="Content"
+                            class="example-image"
+                            onerror="this.style.display='none'"
+                        >
+
+                    </div>
+
+                    <div>
+
+                        <div class="example-role text-center">
+                            Style Image
+                        </div>
+
+                        <img
+                            src="/examples/sketch.png"
+                            alt="Style"
+                            class="example-image"
+                            onerror="this.style.display='none'"
+                        >
+
+                    </div>
+
+                </div>
+
+
+                <div class="example-arrow">
+                    →
+                </div>
+
+
+                <div class="example-output">
+
+                    <div class="example-role text-center">
+                        Output
+                    </div>
+
+                    <img
+                        src="/examples/stylized_brad_pitt.jpg"
+                        alt="Result"
+                        class="example-image"
+                        onerror="this.style.display='none'"
+                    >
+
+                </div>
+
+            </div>
+
+
+            <!-- EXAMPLE 2 -->
+
+            <div class="example-flow">
+
+                <div class="example-inputs">
+
+                    <div>
+
+                        <div class="example-role text-center">
+                            Content Image
+                        </div>
+
+                        <img
+                            src="/examples/brad_pitt.jpg"
+                            alt="Content"
+                            class="example-image"
+                            onerror="this.style.display='none'"
+                        >
+
+                    </div>
+
+                    <div>
+
+                        <div class="example-role text-center">
+                            Style Image
+                        </div>
+
+                        <img
+                            src="/examples/picasso_seated_nude_hr.jpg"
+                            alt="Style"
+                            class="example-image"
+                            onerror="this.style.display='none'"
+                        >
+
+                    </div>
+
+                </div>
+
+
+                <div class="example-arrow">
+                    →
+                </div>
+
+
+                <div class="example-output">
+
+                    <div class="example-role text-center">
+                        Output
+                    </div>
+
+                    <img
+                        src="/examples/stylized_brad_pitt%20(1).jpg"
+                        alt="Result"
+                        class="example-image"
+                        onerror="this.style.display='none'"
+                    >
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- =========================
+     FAQ
+========================= -->
+
+<section
+    class="container faq-section"
+    id="faq"
+>
+
+    <div class="card">
+
+        <div class="card-header text-center py-3">
+            FAQs
+        </div>
+
+        <div class="card-body">
+
+            <div
+                class="accordion"
+                id="faqAccordion"
+            >
+
+
+                <!-- FAQ 1 -->
+
+                <div class="accordion-item">
+
+                    <h2 class="accordion-header">
+
+                        <button
+                            class="accordion-button collapsed"
+                            type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#faqOne"
+                        >
+                            1. Is it a pretrained model?
+                        </button>
+
+                    </h2>
+
+                    <div
+                        id="faqOne"
+                        class="accordion-collapse collapse"
+                        data-bs-parent="#faqAccordion"
+                    >
+
+                        <div class="accordion-body">
+
+                            For encoder the system uses pretrained
+                            VGG-19 and AdaIN decoder weights
+                            for neural style transfer but for decoder it is fully trained
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- FAQ 2 -->
+
+                <div class="accordion-item">
+
+                    <h2 class="accordion-header">
+
+                        <button
+                            class="accordion-button collapsed"
+                            type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#faqTwo"
+                        >
+                            2. Is it a free platform?
+                        </button>
+
+                    </h2>
+
+                    <div
+                        id="faqTwo"
+                        class="accordion-collapse collapse"
+                        data-bs-parent="#faqAccordion"
+                    >
+
+                        <div class="accordion-body">
+
+                            This demo is currently available
+                            as a free experience.
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- FAQ 3 -->
+
+                <div class="accordion-item">
+
+                    <h2 class="accordion-header">
+
+                        <button
+                            class="accordion-button collapsed"
+                            type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#faqThree"
+                        >
+                            3. Which styles can be used?
+                        </button>
+
+                    </h2>
+
+                    <div
+                        id="faqThree"
+                        class="accordion-collapse collapse"
+                        data-bs-parent="#faqAccordion"
+                    >
+
+                        <div class="accordion-body">
+
+                            You can use almost any painting,
+                            artwork, sketch, or artistic image
+                            as the style reference.
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- FAQ 4 -->
+
+                <div class="accordion-item">
+
+                    <h2 class="accordion-header">
+
+                        <button
+                            class="accordion-button collapsed"
+                            type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#faqFour"
+                        >
+                            4. What is the tech stack?
+                        </button>
+
+                    </h2>
+
+                    <div
+                        id="faqFour"
+                        class="accordion-collapse collapse"
+                        data-bs-parent="#faqAccordion"
+                    >
+
+                        <div class="accordion-body">
+
+                            Python, PyTorch, FastAPI,
+                            HTML, CSS, JavaScript,
+                            VGG-19 and AdaIN.
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- FAQ 5 -->
+
+                <div class="accordion-item">
+
+                    <h2 class="accordion-header">
+
+                        <button
+                            class="accordion-button collapsed"
+                            type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#faqFive"
+                        >
+                            5. What does the Style Strength control do?
+                        </button>
+
+                    </h2>
+
+                    <div
+                        id="faqFive"
+                        class="accordion-collapse collapse"
+                        data-bs-parent="#faqAccordion"
+                    >
+
+                        <div class="accordion-body">
+
+                            Style Strength controls the alpha
+                            parameter. A value close to 0 keeps
+                            more of the original content, while
+                            a value close to 1 applies stronger
+                            style information.
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- =========================
+     FOOTER
+========================= -->
+
+<footer class="footer-section">
+
+    <div class="container">
+
+        <div class="row g-4">
+
+            <div class="col-lg-4 col-md-6">
+
+                <h5>
+
+                    <i class="fas fa-brain me-2"></i>
+
+                    NeuralArt
+
+                </h5>
+
+                <p class="mb-4">
+
+                    Transform ordinary images into
+                    artistic masterpieces using
+                    deep learning.
+
+                </p>
+
+                <p class="small text-muted">
+
+                    Powered by Adaptive Instance
+                    Normalization and PyTorch.
+
+                </p>
+
+            </div>
+
+
+            <div class="col-lg-2 col-md-6">
+
+                <h5>
+                    Quick Links
+                </h5>
+
+                <a
+                    href="/"
+                    class="footer-link"
+                >
+                    Home
+                </a>
+
+                <a
+                    href="#examples"
+                    class="footer-link"
+                >
+                    Gallery
+                </a>
+
+                <a
+                    href="/docs"
+                    class="footer-link"
+                >
+                    API Docs
+                </a>
+
+                <a
+                    href="#faq"
+                    class="footer-link"
+                >
+                    FAQ
+                </a>
+
+            </div>
+
+
+            <div class="col-lg-3 col-md-6">
+
+                <h5>
+                    Project
+                </h5>
+
+                <p class="mb-2">
+                    <i class="fas fa-microchip me-2"></i>
+                    PyTorch + AdaIN
+                </p>
+
+                <p class="mb-2">
+                    <i class="fas fa-server me-2"></i>
+                    FastAPI
+                </p>
+
+                <p class="mb-2">
+                    <i class="fas fa-brain me-2"></i>
+                    VGG-19 Encoder
+                </p>
+
+                <p class="mb-2">
+                    <i class="fas fa-paint-brush me-2"></i>
+                    AdaIN Decoder
+                </p>
+
+            </div>
+
+
+            <div class="col-lg-3 col-md-6">
+
+                <h5>
+                    Follow Us
+                </h5>
+
+                <div class="d-flex mb-3">
+
+                    <a
+                        href="https://github.com/hasan2445"
+                        class="social-icon"
+                    >
+                        <i class="fab fa-github"></i>
+                    </a>
+
+                    <a
+                        href="https://www.linkedin.com/in/hasan2445/"
+                        class="social-icon"
+                    >
+                        <i class="fab fa-linkedin"></i>
+                    </a>
+
+
+                </div>
+
+                <p class="small text-muted">
+                    Neural style transfer powered
+                    by deep learning.
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <hr
+            class="my-4"
+            style="border-color:rgba(255,255,255,0.1);"
+        >
+
+
+        <div
+            class="text-center text-muted small"
+        >
+            &copy; 2026 NeuralArt.
+            All rights reserved.
+        </div>
+
+    </div>
+
+</footer>
+
+
+<!-- =========================
+     LOADING OVERLAY
+========================= -->
+
+<div
+    class="loader-overlay"
+    id="loader"
+>
+
+    <div class="cyber-spinner mb-4"></div>
+
+    <h3
+        class="text-white"
+        style="
+            font-family:'Orbitron',sans-serif;
+            letter-spacing:2px;
+        "
+    >
+        PROCESSING
+    </h3>
+
+    <p class="text-muted">
+        Neural Network is dreaming...
+    </p>
+
+</div>
+
+
+<!-- Bootstrap -->
+
+<script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
+></script>
+
+
+<script>
+
+    /* =========================
+       IMAGE PREVIEW
+    ========================= */
+
+    function previewFile(input, previewId) {
+
+        const preview =
+            document.getElementById(previewId);
+
+        const file =
+            input.files[0];
+
+        if (!file) {
+
+            preview.innerHTML =
+                "<span>Select Image</span>";
+
+            return;
+        }
+
+        const reader =
+            new FileReader();
+
+        reader.onload =
+            function(event) {
+
+                preview.innerHTML = `
+                    <img
+                        src="${event.target.result}"
+                        alt="Image Preview"
+                    >
+                `;
+
+            };
+
+        reader.readAsDataURL(file);
+    }
+
+
+    /* =========================
+       CONTENT IMAGE
+    ========================= */
+
+    document
+        .getElementById("content")
+        .addEventListener(
+            "change",
+            function() {
+
+                previewFile(
+                    this,
+                    "contentPreview"
+                );
+
+            }
+        );
+
+
+    /* =========================
+       STYLE IMAGE
+    ========================= */
+
+    document
+        .getElementById("style")
+        .addEventListener(
+            "change",
+            function() {
+
+                previewFile(
+                    this,
+                    "stylePreview"
+                );
+
+            }
+        );
+
+
+    /* =========================
+       ALPHA SLIDER
+    ========================= */
+
+    const range =
+        document.getElementById(
+            "alphaRange"
+        );
+
+    const rangeValue =
+        document.getElementById(
+            "rangeValue"
+        );
+
+
+    function updateRange() {
+
+        const value =
+            parseFloat(range.value);
+
+        const min =
+            parseFloat(range.min);
+
+        const max =
+            parseFloat(range.max);
+
+        const percentage =
+            ((value - min) * 100)
+            /
+            (max - min);
+
+        rangeValue.textContent =
+            value.toFixed(1);
+
+        range.style.background =
+            `
+            linear-gradient(
+                to right,
+                #818cf8 0%,
+                #c084fc ${percentage}%,
+                rgba(30,41,59,0.8)
+                ${percentage}%,
+                rgba(30,41,59,0.8)
+                100%
+            )
+            `;
+    }
+
+
+    range.addEventListener(
+        "input",
+        updateRange
+    );
+
+    updateRange();
+
+
+    /* =========================
+       FORM SUBMISSION
+    ========================= */
+
+    const form =
+        document.getElementById(
+            "uploadForm"
+        );
+
+
+    form.addEventListener(
+        "submit",
+        async function(event) {
+
+            event.preventDefault();
+
+
+            const contentInput =
+                document.getElementById(
+                    "content"
+                );
+
+            const styleInput =
+                document.getElementById(
+                    "style"
+                );
+
+            const alphaInput =
+                document.getElementById(
+                    "alphaRange"
+                );
+
+            const loader =
+                document.getElementById(
+                    "loader"
+                );
+
+            const errorBox =
+                document.getElementById(
+                    "errorBox"
+                );
+
+            const errorMessage =
+                document.getElementById(
+                    "errorMessage"
+                );
+
+            const resultSection =
+                document.getElementById(
+                    "resultSection"
+                );
+
+            const resultImage =
+                document.getElementById(
+                    "resultImage"
+                );
+
+            const downloadButton =
+                document.getElementById(
+                    "downloadButton"
+                );
+
+            const transferButton =
+                document.getElementById(
+                    "transferButton"
+                );
+
+
+            /* =========================
+               VALIDATE CONTENT
+            ========================= */
+
+            if (
+                !contentInput.files ||
+                contentInput.files.length === 0
+            ) {
+
+                alert(
+                    "Please select a content image."
+                );
+
+                return;
+            }
+
+
+            /* =========================
+               VALIDATE STYLE
+            ========================= */
+
+            if (
+                !styleInput.files ||
+                styleInput.files.length === 0
+            ) {
+
+                alert(
+                    "Please select a style image."
+                );
+
+                return;
+            }
+
+
+            /* =========================
+               RESET ERROR
+            ========================= */
+
+            errorBox.style.display =
+                "none";
+
+
+            /* =========================
+               SHOW LOADER
+            ========================= */
+
+            loader.classList.add(
+                "active"
+            );
+
+            transferButton.disabled =
+                true;
+
+            transferButton.innerHTML =
+                `
+                <i
+                    class="
+                        fas
+                        fa-spinner
+                        fa-spin
+                        me-2
+                    "
+                ></i>
+
+                PROCESSING...
+                `;
+
+
+            /* =========================
+               CREATE FORMDATA
+            ========================= */
+
+            const formData =
+                new FormData();
+
+            formData.append(
+                "content",
+                contentInput.files[0]
+            );
+
+            formData.append(
+                "style",
+                styleInput.files[0]
+            );
+
+            formData.append(
+                "alpha",
+                alphaInput.value
+            );
+
+
+            try {
+
+                console.log(
+                    "Sending request to FastAPI..."
+                );
+
+
+                /* =========================
+                   FASTAPI REQUEST
+                ========================= */
+
+                const response =
+                    await fetch(
+                        "/style-transfer",
+                        {
+                            method: "POST",
+                            body: formData
+                        }
+                    );
+
+
+                console.log(
+                    "Response status:",
+                    response.status
+                );
+
+
+                /* =========================
+                   HANDLE ERROR
+                ========================= */
+
+                if (!response.ok) {
+
+                    let message =
+                        "Style transfer failed.";
+
+                    try {
+
+                        const errorData =
+                            await response.json();
+
+                        if (errorData.detail) {
+
+                            if (
+                                typeof errorData.detail
+                                === "string"
+                            ) {
+
+                                message =
+                                    errorData.detail;
+
+                            } else {
+
+                                message =
+                                    JSON.stringify(
+                                        errorData.detail
+                                    );
+
+                            }
+
+                        }
+
+                    } catch (jsonError) {
+
+                        console.error(
+                            jsonError
+                        );
+
+                    }
+
+                    throw new Error(message);
+                }
+
+
+                /* =========================
+                   GET RESULT IMAGE
+                ========================= */
+
+                const imageBlob =
+                    await response.blob();
+
+
+                /* =========================
+                   CREATE IMAGE URL
+                ========================= */
+
+                const imageURL =
+                    URL.createObjectURL(
+                        imageBlob
+                    );
+
+
+                /* =========================
+                   DISPLAY RESULT
+                ========================= */
+
+                resultImage.src =
+                    imageURL;
+
+                resultSection.style.display =
+                    "flex";
+
+
+                /* =========================
+                   DOWNLOAD
+                ========================= */
+
+                downloadButton.href =
+                    imageURL;
+
+
+                /* =========================
+                   SCROLL TO RESULT
+                ========================= */
+
+                setTimeout(
+                    function() {
+
+                        resultSection.scrollIntoView(
+                            {
+                                behavior: "smooth"
+                            }
+                        );
+
+                    },
+                    300
+                );
+
+
+                console.log(
+                    "Style transfer completed!"
+                );
+
+            }
+
+
+            catch (error) {
+
+                console.error(
+                    "Style transfer error:",
+                    error
+                );
+
+                errorMessage.textContent =
+                    error.message;
+
+                errorBox.style.display =
+                    "block";
+
+                errorBox.scrollIntoView(
+                    {
+                        behavior: "smooth"
+                    }
+                );
+
+            }
+
+
+            finally {
+
+                loader.classList.remove(
+                    "active"
+                );
+
+                transferButton.disabled =
+                    false;
+
+                transferButton.innerHTML =
+                    `
+                    <i class="fas fa-magic me-2"></i>
+                    TRANSFER STYLE
+                    `;
+
+            }
+
+        }
+    );
+
+</script>
+
+</body>
+
+</html>
