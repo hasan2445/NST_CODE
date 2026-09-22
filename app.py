@@ -135,11 +135,13 @@ if os.path.isdir(EXAMPLES_DIR):
 # 7. DEVICE
 # ============================================================
 
+# Render Free does not provide a GPU.
+# Therefore this will normally be CPU.
+
 device = torch.device(
     "cuda" if torch.cuda.is_available()
     else "cpu"
 )
-
 
 print("=" * 60)
 print("NEURAL STYLE TRANSFER API")
@@ -179,52 +181,93 @@ if not os.path.exists(DECODER_PATH):
 
 
 # ============================================================
-# 9. LOAD VGG ENCODER
+# 9. LAZY MODEL LOADING
 # ============================================================
 
-print("Loading VGG encoder...")
+# IMPORTANT:
+# Do NOT load VGG and Decoder during application startup.
+#
+# Render Free has only 512 MB RAM.
+#
+# We load the models only when the first
+# style-transfer request is received.
 
-encoder = VGGEncoder(
-    VGG_PATH
-).to(device)
-
-encoder.eval()
-
-print("VGG encoder loaded.")
-
-
-# ============================================================
-# 10. LOAD DECODER
-# ============================================================
-
-print("Loading trained decoder...")
-
-decoder = Decoder().to(device)
+encoder = None
+decoder = None
 
 
-decoder.load_state_dict(
-    torch.load(
-        DECODER_PATH,
-        map_location=device,
-        weights_only=True
+def load_models():
+
+    global encoder
+    global decoder
+
+    # --------------------------------------------------------
+    # Models already loaded
+    # --------------------------------------------------------
+
+    if (
+        encoder is not None
+        and
+        decoder is not None
+    ):
+
+        return
+
+
+    print("=" * 60)
+    print("LOADING NEURAL STYLE TRANSFER MODELS")
+    print("=" * 60)
+
+
+    # --------------------------------------------------------
+    # Load VGG Encoder
+    # --------------------------------------------------------
+
+    print("Loading VGG encoder...")
+
+    encoder = VGGEncoder(
+        VGG_PATH
+    ).to(device)
+
+    encoder.eval()
+
+    print("VGG encoder loaded.")
+
+
+    # --------------------------------------------------------
+    # Load Decoder
+    # --------------------------------------------------------
+
+    print("Loading trained decoder...")
+
+    decoder = Decoder().to(device)
+
+    decoder.load_state_dict(
+        torch.load(
+            DECODER_PATH,
+            map_location=device,
+            weights_only=True
+        )
     )
-)
 
-decoder.eval()
+    decoder.eval()
 
-print("Decoder loaded successfully.")
+    print("Decoder loaded successfully.")
 
-print("=" * 60)
+    print("=" * 60)
 
 
 # ============================================================
-# 11. IMAGE TRANSFORM
+# 10. IMAGE TRANSFORM
 # ============================================================
+
+# 256 x 256 is used instead of 512 x 512
+# to reduce RAM usage on Render Free.
 
 image_transform = transforms.Compose([
 
     transforms.Resize(
-        (512, 512)
+        (256, 256)
     ),
 
     transforms.ToTensor()
@@ -233,7 +276,7 @@ image_transform = transforms.Compose([
 
 
 # ============================================================
-# 12. STYLE TRANSFER FUNCTION
+# 11. STYLE TRANSFER FUNCTION
 # ============================================================
 
 def style_transfer(
@@ -241,6 +284,13 @@ def style_transfer(
     style_image,
     alpha=1.0
 ):
+
+    # --------------------------------------------------------
+    # Load models only when needed
+    # --------------------------------------------------------
+
+    load_models()
+
 
     # --------------------------------------------------------
     # Convert PIL images to tensors
@@ -268,10 +318,15 @@ def style_transfer(
 
 
     # --------------------------------------------------------
-    # Extract VGG features
+    # Neural Style Transfer
     # --------------------------------------------------------
 
     with torch.no_grad():
+
+
+        # ----------------------------------------------------
+        # Extract VGG features
+        # ----------------------------------------------------
 
         content_features = encoder(
             content_tensor
@@ -346,7 +401,7 @@ def style_transfer(
 
 
 # ============================================================
-# 13. SAVE GENERATED IMAGE
+# 12. SAVE GENERATED IMAGE
 # ============================================================
 
 def save_generated_image(
@@ -354,7 +409,10 @@ def save_generated_image(
     output_path
 ):
 
+    # --------------------------------------------------------
     # Remove gradients
+    # --------------------------------------------------------
+
     image_tensor = (
         image_tensor
         .detach()
@@ -362,31 +420,43 @@ def save_generated_image(
     )
 
 
+    # --------------------------------------------------------
     # Remove batch dimension
+    # --------------------------------------------------------
+
     image_tensor = image_tensor.squeeze(0)
 
 
+    # --------------------------------------------------------
     # Keep pixel values between 0 and 1
+    # --------------------------------------------------------
+
     image_tensor = image_tensor.clamp(
         0,
         1
     )
 
 
+    # --------------------------------------------------------
     # Convert tensor -> PIL image
+    # --------------------------------------------------------
+
     image = transforms.ToPILImage()(
         image_tensor
     )
 
 
+    # --------------------------------------------------------
     # Save image
+    # --------------------------------------------------------
+
     image.save(
         output_path
     )
 
 
 # ============================================================
-# 14. ROOT PAGE
+# 13. ROOT PAGE
 # ============================================================
 
 @app.get(
@@ -397,11 +467,6 @@ async def root(
     request: Request
 ):
 
-    # IMPORTANT:
-    # Use keyword arguments here.
-    # This fixes the TemplateResponse error
-    # from the previous version.
-
     return templates.TemplateResponse(
         request=request,
         name="index.html",
@@ -410,7 +475,7 @@ async def root(
 
 
 # ============================================================
-# 15. HEALTH CHECK
+# 14. HEALTH CHECK
 # ============================================================
 
 @app.get("/health")
@@ -429,7 +494,7 @@ def health():
 
 
 # ============================================================
-# 16. STYLE TRANSFER API
+# 15. STYLE TRANSFER API
 # ============================================================
 
 @app.post("/style-transfer")
@@ -777,16 +842,21 @@ async def style_transfer_api(
 
 
 # ============================================================
-# 17. START SERVER
+# 16. START SERVER
 # ============================================================
 
 if __name__ == "__main__":
 
-  import uvicorn
+    import uvicorn
 
-  uvicorn.run(
-    app,
-    host="0.0.0.0",
-    port=8000,
-    reload=False
-)
+    uvicorn.run(
+
+        app,
+
+        host="0.0.0.0",
+
+        port=8000,
+
+        reload=False
+
+    )
