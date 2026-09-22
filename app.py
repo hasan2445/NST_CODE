@@ -1,8 +1,14 @@
 import os
 import io
 import uuid
+import gc
+import threading
 
 import torch
+
+# Limit CPU thread usage on small/free machines
+torch.set_num_threads(2)
+torch.set_num_interop_threads(1)
 
 from fastapi import (
     FastAPI,
@@ -126,7 +132,9 @@ if os.path.isdir(EXAMPLES_DIR):
 
     app.mount(
         "/examples",
-        StaticFiles(directory=EXAMPLES_DIR),
+        StaticFiles(
+            directory=EXAMPLES_DIR
+        ),
         name="examples"
     )
 
@@ -136,10 +144,10 @@ if os.path.isdir(EXAMPLES_DIR):
 # ============================================================
 
 device = torch.device(
-    "cuda" if torch.cuda.is_available()
+    "cuda"
+    if torch.cuda.is_available()
     else "cpu"
 )
-
 
 print("=" * 60)
 print("NEURAL STYLE TRANSFER API")
@@ -179,52 +187,104 @@ if not os.path.exists(DECODER_PATH):
 
 
 # ============================================================
-# 9. LOAD VGG ENCODER
+# 9. MODEL VARIABLES
 # ============================================================
 
-print("Loading VGG encoder...")
+# Models are NOT loaded during application startup.
+#
+# This is important for Render Free because it has
+# limited RAM.
 
-encoder = VGGEncoder(
-    VGG_PATH
-).to(device)
+encoder = None
+decoder = None
 
-encoder.eval()
 
-print("VGG encoder loaded.")
+# Only one inference request at a time.
+#
+# This prevents two simultaneous requests from consuming
+# the available RAM.
+
+inference_lock = threading.Lock()
 
 
 # ============================================================
-# 10. LOAD DECODER
+# 10. LOAD MODELS
 # ============================================================
 
-print("Loading trained decoder...")
+def load_models():
 
-decoder = Decoder().to(device)
+    global encoder
+    global decoder
+
+    # --------------------------------------------------------
+    # Already loaded
+    # --------------------------------------------------------
+
+    if (
+        encoder is not None
+        and
+        decoder is not None
+    ):
+
+        return
 
 
-decoder.load_state_dict(
-    torch.load(
-        DECODER_PATH,
-        map_location=device,
-        weights_only=True
+    print("=" * 60)
+    print("LOADING NEURAL STYLE TRANSFER MODELS")
+    print("=" * 60)
+
+
+    # --------------------------------------------------------
+    # Load VGG Encoder
+    # --------------------------------------------------------
+
+    print("Loading VGG encoder...")
+
+    encoder = VGGEncoder(
+        VGG_PATH
+    ).to(device)
+
+    encoder.eval()
+
+    print("VGG encoder loaded.")
+
+
+    # --------------------------------------------------------
+    # Load Decoder
+    # --------------------------------------------------------
+
+    print("Loading trained decoder...")
+
+    decoder = Decoder().to(device)
+
+    decoder.load_state_dict(
+        torch.load(
+            DECODER_PATH,
+            map_location=device,
+            weights_only=True
+        )
     )
-)
 
-decoder.eval()
+    decoder.eval()
 
-print("Decoder loaded successfully.")
+    print("Decoder loaded successfully.")
 
-print("=" * 60)
+    print("=" * 60)
 
 
 # ============================================================
 # 11. IMAGE TRANSFORM
 # ============================================================
 
+# Smaller resolution reduces memory consumption.
+#
+# If quality is too low, you can later change this to
+# (256, 256).
+
 image_transform = transforms.Compose([
 
     transforms.Resize(
-        (512, 512)
+        (192, 192)
     ),
 
     transforms.ToTensor()
@@ -233,7 +293,7 @@ image_transform = transforms.Compose([
 
 
 # ============================================================
-# 12. STYLE TRANSFER FUNCTION
+# 12. STYLE TRANSFER
 # ============================================================
 
 def style_transfer(
@@ -243,7 +303,14 @@ def style_transfer(
 ):
 
     # --------------------------------------------------------
-    # Convert PIL images to tensors
+    # Load models if this is the first request
+    # --------------------------------------------------------
+
+    load_models()
+
+
+    # --------------------------------------------------------
+    # Create tensors
     # --------------------------------------------------------
 
     content_tensor = image_transform(
@@ -268,10 +335,14 @@ def style_transfer(
 
 
     # --------------------------------------------------------
-    # Extract VGG features
+    # Inference
     # --------------------------------------------------------
 
-    with torch.no_grad():
+    with torch.inference_mode():
+
+        # ----------------------------------------------------
+        # Extract VGG features
+        # ----------------------------------------------------
 
         content_features = encoder(
             content_tensor
@@ -283,12 +354,16 @@ def style_transfer(
 
 
         # ----------------------------------------------------
-        # Get deepest feature
+        # Deepest feature
         # ----------------------------------------------------
 
-        content_feature = content_features[-1]
+        content_feature = (
+            content_features[-1]
+        )
 
-        style_feature = style_features[-1]
+        style_feature = (
+            style_features[-1]
+        )
 
 
         print(
@@ -303,12 +378,14 @@ def style_transfer(
 
 
         # ----------------------------------------------------
-        # Adaptive Instance Normalization
+        # AdaIN
         # ----------------------------------------------------
 
-        target_feature = adaptive_instance_normalization(
-            content_feature,
-            style_feature
+        target_feature = (
+            adaptive_instance_normalization(
+                content_feature,
+                style_feature
+            )
         )
 
 
@@ -317,13 +394,9 @@ def style_transfer(
         # ----------------------------------------------------
 
         target_feature = (
-
             alpha * target_feature
-
             +
-
             (1.0 - alpha) * content_feature
-
         )
 
 
@@ -336,13 +409,43 @@ def style_transfer(
         )
 
 
-    print(
-        "Generated image:",
-        generated_image.shape
-    )
+        # ----------------------------------------------------
+        # Move result to CPU
+        # ----------------------------------------------------
+
+        result = (
+            generated_image
+            .detach()
+            .cpu()
+        )
 
 
-    return generated_image
+    # ========================================================
+    # FREE TEMPORARY MEMORY
+    # ========================================================
+
+    del content_tensor
+    del style_tensor
+
+    del content_features
+    del style_features
+
+    del content_feature
+    del style_feature
+
+    del target_feature
+    del generated_image
+
+    gc.collect()
+
+
+    # CUDA cleanup if a GPU is available
+    if torch.cuda.is_available():
+
+        torch.cuda.empty_cache()
+
+
+    return result
 
 
 # ============================================================
@@ -354,32 +457,39 @@ def save_generated_image(
     output_path
 ):
 
-    # Remove gradients
+    # --------------------------------------------------------
+    # Remove batch dimension
+    # --------------------------------------------------------
+
     image_tensor = (
         image_tensor
-        .detach()
-        .cpu()
+        .squeeze(0)
     )
 
 
-    # Remove batch dimension
-    image_tensor = image_tensor.squeeze(0)
+    # --------------------------------------------------------
+    # Clamp values
+    # --------------------------------------------------------
 
-
-    # Keep pixel values between 0 and 1
-    image_tensor = image_tensor.clamp(
-        0,
-        1
+    image_tensor = (
+        image_tensor
+        .clamp(0, 1)
     )
 
 
-    # Convert tensor -> PIL image
+    # --------------------------------------------------------
+    # Convert tensor to PIL
+    # --------------------------------------------------------
+
     image = transforms.ToPILImage()(
         image_tensor
     )
 
 
-    # Save image
+    # --------------------------------------------------------
+    # Save
+    # --------------------------------------------------------
+
     image.save(
         output_path
     )
@@ -396,11 +506,6 @@ def save_generated_image(
 async def root(
     request: Request
 ):
-
-    # IMPORTANT:
-    # Use keyword arguments here.
-    # This fixes the TemplateResponse error
-    # from the previous version.
 
     return templates.TemplateResponse(
         request=request,
@@ -450,7 +555,7 @@ async def style_transfer_api(
 
 
     # ========================================================
-    # CHECK CONTENT FILE
+    # CHECK FILES
     # ========================================================
 
     if content is None:
@@ -460,10 +565,6 @@ async def style_transfer_api(
             detail="Content image was not provided."
         )
 
-
-    # ========================================================
-    # CHECK STYLE FILE
-    # ========================================================
 
     if style is None:
 
@@ -530,22 +631,26 @@ async def style_transfer_api(
     # ========================================================
 
     allowed_extensions = {
-
         ".jpg",
         ".jpeg",
         ".png"
-
     }
 
 
-    content_extension = os.path.splitext(
-        content.filename
-    )[1].lower()
+    content_extension = (
+        os.path.splitext(
+            content.filename
+        )[1]
+        .lower()
+    )
 
 
-    style_extension = os.path.splitext(
-        style.filename
-    )[1].lower()
+    style_extension = (
+        os.path.splitext(
+            style.filename
+        )[1]
+        .lower()
+    )
 
 
     if content_extension not in allowed_extensions:
@@ -571,17 +676,23 @@ async def style_transfer_api(
 
 
     # ========================================================
-    # READ UPLOADED IMAGES
+    # READ IMAGES
     # ========================================================
 
     try:
 
-        print("Reading uploaded images...")
+        print(
+            "Reading uploaded images..."
+        )
 
 
-        content_data = await content.read()
+        content_data = (
+            await content.read()
+        )
 
-        style_data = await style.read()
+        style_data = (
+            await style.read()
+        )
 
 
         print(
@@ -596,7 +707,7 @@ async def style_transfer_api(
 
 
         # ----------------------------------------------------
-        # Check empty files
+        # Empty file check
         # ----------------------------------------------------
 
         if len(content_data) == 0:
@@ -614,17 +725,27 @@ async def style_transfer_api(
 
 
         # ----------------------------------------------------
-        # Convert bytes -> PIL images
+        # Bytes -> PIL
         # ----------------------------------------------------
 
-        content_image = Image.open(
-            io.BytesIO(content_data)
-        ).convert("RGB")
+        content_image = (
+            Image.open(
+                io.BytesIO(
+                    content_data
+                )
+            )
+            .convert("RGB")
+        )
 
 
-        style_image = Image.open(
-            io.BytesIO(style_data)
-        ).convert("RGB")
+        style_image = (
+            Image.open(
+                io.BytesIO(
+                    style_data
+                )
+            )
+            .convert("RGB")
+        )
 
 
         print(
@@ -661,24 +782,28 @@ async def style_transfer_api(
     try:
 
         print(
-            "Running AdaIN style transfer..."
+            "Waiting for inference lock..."
         )
 
 
-        generated_image = style_transfer(
+        # Only one inference at a time.
+        with inference_lock:
 
-            content_image,
+            print(
+                "Running AdaIN style transfer..."
+            )
 
-            style_image,
+            generated_image = (
+                style_transfer(
+                    content_image,
+                    style_image,
+                    alpha
+                )
+            )
 
-            alpha
-
-        )
-
-
-        print(
-            "Style transfer completed."
-        )
+            print(
+                "Style transfer completed."
+            )
 
 
     except Exception as e:
@@ -687,6 +812,9 @@ async def style_transfer_api(
             "MODEL ERROR:",
             repr(e)
         )
+
+        # Cleanup
+        gc.collect()
 
         raise HTTPException(
             status_code=500,
@@ -704,31 +832,21 @@ async def style_transfer_api(
     try:
 
         filename = (
-
             "stylized_"
-
             + uuid.uuid4().hex
-
             + ".png"
-
         )
 
 
         output_path = os.path.join(
-
             UPLOAD_FOLDER,
-
             filename
-
         )
 
 
         save_generated_image(
-
             generated_image,
-
             output_path
-
         )
 
 
@@ -738,12 +856,23 @@ async def style_transfer_api(
         )
 
 
+        # ----------------------------------------------------
+        # Free output tensor memory
+        # ----------------------------------------------------
+
+        del generated_image
+
+        gc.collect()
+
+
     except Exception as e:
 
         print(
             "SAVE ERROR:",
             repr(e)
         )
+
+        gc.collect()
 
         raise HTTPException(
             status_code=500,
@@ -755,7 +884,7 @@ async def style_transfer_api(
 
 
     # ========================================================
-    # RETURN GENERATED IMAGE
+    # RETURN IMAGE
     # ========================================================
 
     print(
@@ -782,11 +911,16 @@ async def style_transfer_api(
 
 if __name__ == "__main__":
 
-  import uvicorn
+    import uvicorn
 
-  uvicorn.run(
-    app,
-    host="0.0.0.0",
-    port=8000,
-    reload=False
-)
+    uvicorn.run(
+
+        app,
+
+        host="0.0.0.0",
+
+        port=8000,
+
+        reload=False
+
+    )
